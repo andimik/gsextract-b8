@@ -1,4 +1,6 @@
-# GSExtract
+# GSExtract-b8
+This is a modified version of GSExtract that will parse BBframe streams that have a B8 byte inserted before each bbframe header.
+
 GSExtract is a tool for converting imperfect satellite radio captures of internet traffic transmitted using Generic Stream Encapsulation (GSE) over DVB-S into usable *.pcap files.
 
 You can learn more about the tool and its capabilites by [watching](https://www.youtube.com/watch?v=ku0Q_Wey4K0) the corresponding Black Hat USA 2020 / DEFCON 28 briefings.

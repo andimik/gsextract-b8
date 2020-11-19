@@ -8,12 +8,12 @@ if parse_version(ks_version) < parse_version('0.7'):
     raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
 
 class PureBb(KaitaiStruct):
-    def __init__(self, _io, _parent=None, _root=None, matype_crib=None):
+    def __init__(self, _io, _parent=None, _root=None, bbsync=None):
         self._io = _io
         self._parent = _parent
         self._root = _root if _root else self
-        if matype_crib is not None:
-            self._m_matype_crib = matype_crib
+        if bbsync is not None:
+            self._bbsync = bbsync
         self._read()
 
     def _read(self):
@@ -39,21 +39,23 @@ class PureBb(KaitaiStruct):
 
         def _read(self):
             self.bbheader = self._root.Bbheader(self._io, self, self._root)
-            if self.bbheader.matype_2 == 0:
+            if self.bbheader.bbsync == 0xb8:
                 self.data_field = self._io.read_bytes((self.bbheader.data_field_length_bytes - 4))
 
-            if self.bbheader.matype_2 == 0:
+            if self.bbheader.bbsync == 0xb8:
                 self.crc32 = self._io.read_bytes(4)
 
-            if self.bbheader.matype_2 != 0:
+            if self.bbheader.bbsync != 0xb8:
                 self.corrupt_data = []
                 i = 0
                 while True:
                     _ = self._root.JunkData(self._io, self, self._root)
                     self.corrupt_data.append(_)
-                    if _.next_byte == self._root.matype_crib:
+                    if _.next_byte == self._root.bbsync:
                         break
                     i += 1
+
+
 
 
 
@@ -74,7 +76,7 @@ class PureBb(KaitaiStruct):
 
             _pos = self._io.pos()
             self._io.seek(self._io.pos())
-            self._m_next_byte = self._io.read_bits_int(16)
+            self._m_next_byte = self._io.read_bits_int(8)
             self._io.seek(_pos)
             return self._m_next_byte if hasattr(self, '_m_next_byte') else None
 
@@ -87,21 +89,22 @@ class PureBb(KaitaiStruct):
             self._read()
 
         def _read(self):
+            self.bbsync = self._io.read_bits_int(8)
             self.matype_1 = self._root.Matype1(self._io, self, self._root)
             self.matype_2 = self._io.read_bits_int(8)
-            if self.matype_2 == 0:
+            if self.bbsync == 0xb8:
                 self.user_packet_length = self._io.read_bits_int(16)
 
-            if self.matype_2 == 0:
+            if self.bbsync == 0xb8:
                 self.data_field_length = self._io.read_bits_int(16)
 
-            if self.matype_2 == 0:
+            if self.bbsync == 0xb8:
                 self.sync = self._io.read_bits_int(8)
 
-            if self.matype_2 == 0:
+            if self.bbsync == 0xb8:
                 self.syncd = self._io.read_bits_int(16)
 
-            if self.matype_2 == 0:
+            if self.bbsync == 0xb8:
                 self.crc8 = self._io.read_bits_int(8)
 
 
@@ -131,21 +134,21 @@ class PureBb(KaitaiStruct):
 
 
     @property
-    def matype_crib(self):
+    def bbsync(self):
         """This value is used to recover from broken bbheader streams by looking for the next valid bbheader.
         It can be manually edited or specified by modifying the generated constructor like so:
-        def __init__(self, _io, _parent=None, _root=None, matype_crib=None):
+        def __init__(self, _io, _parent=None, _root=None, bbsync=None):
           self._io = _io
           self._parent = _parent
           self._root = _root if _root else self
-          if matype_crib is not None:
-              self._m_matype_crib = matype_crib
+          if bbsync is not None:
+              self._bbsync = bbsync
           self._read()
         """
-        if hasattr(self, '_m_matype_crib'):
-            return self._m_matype_crib if hasattr(self, '_m_matype_crib') else None
+        if hasattr(self, '_bbsync'):
+            return self._bbsync if hasattr(self, '_bbsync') else None
 
-        self._m_matype_crib = 16896
-        return self._m_matype_crib if hasattr(self, '_m_matype_crib') else None
+        self._bbsync = 0xB8
+        return self._bbsync if hasattr(self, '_bbsync') else None
 
 

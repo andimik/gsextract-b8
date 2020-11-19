@@ -15,36 +15,38 @@ types:
         type: bbheader
       - id: data_field
         size: bbheader.data_field_length_bytes - 4
-        if: bbheader.matype_2 == 0
+        if: bbheader.bbsync == 0xB8
       - id: crc32
         size: 4
-        if: bbheader.matype_2 ==0
+        if: bbheader.bbsync == 0xB8
       - id: corrupt_data
         type: junk_data
         repeat: until
-        repeat-until: _.next_byte == _root.matype_crib
-        if: bbheader.matype_2 != 0
+        repeat-until: _.next_byte == _root.bbsync
+        if: bbheader.bbsync != 0xB8
   bbheader:
     seq:
+      - id: bbsync
+        type: b8
       - id: matype_1
         type: matype_1
       - id: matype_2
         type: b8
       - id: user_packet_length
         type: b16
-        if: matype_2 == 0
+        if: bbsync == 0xB8
       - id: data_field_length
         type: b16
-        if: matype_2 == 0
+        if: bbsync == 0xB8
       - id: sync
         type: b8
-        if: matype_2 == 0
+        if: bbsync == 0xB8
       - id: syncd
         type: b16
-        if: matype_2 == 0
+        if: bbsync == 0xB8
       - id: crc8
         type: b8
-        if: matype_2 == 0
+        if: bbsync == 0xB8
     instances:
       data_field_length_bytes:
         value: data_field_length / 8
@@ -73,18 +75,18 @@ types:
     instances:
       next_byte:
         pos: _io.pos
-        type: b16
+        type: b8
         consume: false
 instances:
-  matype_crib:
-    value: 0x4200
+  bbsync:
+    value: 0xB8
     doc: |
       This value is used to recover from broken bbheader streams by looking for the next valid bbheader.
       It can be manually edited or specified by modifying the generated constructor like so:
-      def __init__(self, _io, _parent=None, _root=None, matype_crib=None):
+      def __init__(self, _io, _parent=None, _root=None, bbsync=None):
         self._io = _io
         self._parent = _parent
         self._root = _root if _root else self
-        if matype_crib is not None:
-            self._m_matype_crib = matype_crib
+        if bbsync is not None:
+            self._bbsync = bbsync
         self._read()

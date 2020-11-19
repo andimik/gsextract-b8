@@ -35,7 +35,7 @@ URG = 0x20
 ECE = 0x40
 CWR = 0x80
 
-def gse_parse(file, outfile, matype_crib=int(0x4200), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True):
+def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True):
     with open(outfile, 'wb') as pcap_file:
         io = KaitaiStream(open(file, 'rb'))
         pcap_writer = Writer()
@@ -49,7 +49,7 @@ def gse_parse(file, outfile, matype_crib=int(0x4200), stream=False, tcp_hijack=F
                 last_pos = io.pos()
                 # prints the first BBframe we find at the current IO position
                 # this throws EOF if there's no bytes left in the file
-                current_bbframe = PureBb(io, matype_crib=matype_crib).bbframe
+                current_bbframe = PureBb(io, bbsync=bbsync).bbframe
                 if eof_count > 0:
                     print("new frames found, continuing...")
                     eof_count = 0
@@ -79,7 +79,19 @@ def gse_parse(file, outfile, matype_crib=int(0x4200), stream=False, tcp_hijack=F
             # record stats on corrupt BBframes and then move to the next frame
             if hasattr(current_bbframe, 'corrupt_data'):
                 counters['broken_bbframes'] += 1
-                print("BBFrame", bbframe_count, " contains corrupt data, (MA2:", current_bbframe.bbheader.matype_2, ") attempting to recover")
+                tmp=current_bbframe.bbheader.matype_1.ts_gs_field
+                tmp<<=2
+                tmp=current_bbframe.bbheader.matype_1.sis_mis_field
+                tmp<<=1
+                tmp=current_bbframe.bbheader.matype_1.ccm_acm_field
+                tmp<<=1
+                tmp=current_bbframe.bbheader.matype_1.issyi
+                tmp<<=1
+                tmp=current_bbframe.bbheader.matype_1.npd
+                tmp<<=1
+                tmp=current_bbframe.bbheader.matype_1.ro
+                tmp<<=2
+                print("BBFrame", bbframe_count, " contains corrupt data, (BBSYNC, MA1, MA2:", current_bbframe.bbheader.bbsync, " ", tmp, " ", current_bbframe.bbheader.matype_2, ") attempting to recover")
             else:
                 # for valid BBFrames
                 # next extract gse packets from the bbframe and try to make them into IP payloads
@@ -167,7 +179,7 @@ def parse_gse_packet_array(gse_packets, frame_number, cleanup=False, reliable=Tr
                     if gse.gse_header.end_indicator:
                         extracted_ip_packets = extract_ip_from_gse_data(defrag_dict[frag_id][1], high_reliability=reliable)
                         if extracted_ip_packets is not None:
-                            scapy_packets.append(extract_ip_from_gse_data(defrag_dict[frag_id][1]), high_reliability=reliable)
+                            scapy_packets.append(extract_ip_from_gse_data(defrag_dict[frag_id][1], high_reliability=reliable))
                         counters['defragmented_gse_packets'] += 1
                         defrag_dict.pop(frag_id, None)
         if s_packets is not None:
