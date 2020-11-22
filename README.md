@@ -1,7 +1,7 @@
 # GSExtract-b8
-This is a modified version of GSExtract that will parse BBframe streams that have a B8 byte inserted before each bbframe header.
+This is a *modified* version of GSExtract that will parse BBframe streams that have a B8 byte inserted before each bbframe header.
 
-GSExtract is a tool for converting imperfect satellite radio captures of internet traffic transmitted using Generic Stream Encapsulation (GSE) over DVB-S into usable *.pcap files.
+**GSExtract** is a tool for converting imperfect satellite radio captures of internet traffic transmitted using Generic Stream Encapsulation (GSE) over DVB-S into usable `*.pcap` files.
 
 You can learn more about the tool and its capabilites by [watching](https://www.youtube.com/watch?v=ku0Q_Wey4K0) the corresponding Black Hat USA 2020 / DEFCON 28 briefings.
 
@@ -9,19 +9,25 @@ The tool was first presented at IEEE S&P 2020 in [this paper](https://doi.ieeeco
 
 >:warning: **Disclaimer**: This tool is provided as a research proof of concept and it is the user's responsibility to ensure that they have appropriate permissions and authority for its use. Take care to adhere to regulations regarding radio communications interception if evaluating this tool in real-world systems.
 
-## Installation
-You can install from PyPI as follows:
-```bash
-pip install gsextract
-``` 
+## Installation (for Ubuntu and derivates)
 
-You can also install directly from github as follows:
+First you need to install python through
+
 ```bash
-git clone https://github.com/ssloxford/gsextract
-pip install ./gsextract
+sudo apt install python3-pip
 ```
 
-This will add the command ``gsextract`` to your python path. 
+Then install the modified gsextract from github as follows:
+```bash
+git clone https://github.com/newspaperman/gsextract-b8.git
+pip3 install ./gsextract-b8
+```
+
+This will add the command ``gsextract`` to your python path. You can change this path with
+
+```bash
+export PATH=$PATH:/home/[user]/.local/bin   # whereas [user] is your username
+```
 
 ## Usage
 Basic usage of GSExtract requires a binary file containing continuous DVB-S BBFrames as input and a file to output the resulting pcap into.
