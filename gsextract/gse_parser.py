@@ -188,7 +188,8 @@ def parse_gse_packet_array(gse_packets, frame_number, cleanup=False, reliable=Tr
     if cleanup:
         # in cleanup mode, we parse through anything left over in the buffer
         for _, entry in defrag_dict.values():
-            extracted_ip_packets = extract_ip_from_gse_data(entry[1], high_reliability=reliable)
+            if len(entry) >= 2:
+                extracted_ip_packets = extract_ip_from_gse_data(entry[1], high_reliability=reliable)
             if extracted_ip_packets is not None:
                 scapy_packets.append(extracted_ip_packets)
             counters['salvage_gse_packets'] += 1
