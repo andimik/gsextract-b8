@@ -23,6 +23,21 @@ git clone https://github.com/newspaperman/gsextract-b8.git
 pip3 install ./gsextract-b8
 ```
 
+ℹ️ Hint:
+
+When you get the `error: externally-managed-environment` then install pipx
+
+```
+sudo apt install pipx
+``` 
+
+and then use
+
+```
+pipx install ./gsextract-b8
+```
+ 
+
 This will add the command ``gsextract`` to your python path. You can change this path with
 
 ```bash
