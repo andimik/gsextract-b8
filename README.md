@@ -34,7 +34,7 @@ sudo apt install pipx
 and then use
 
 ```
-pipx install ./gsextract-b8
+pipx install gsextract-b8
 ```
  
 
