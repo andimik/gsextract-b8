@@ -66,6 +66,12 @@ The available input formats are:
 * ``auto`` (default): detect the format from the next byte before each BBFrame header
 * ``b8``: expect an inserted ``0xB8`` byte before each BBFrame header
 * ``standard``: the BBFrame header starts directly, without the inserted byte
+* ``ts``: extract and reassemble the MPEG-TS PID containing BBFrames
+
+When ``auto`` detects MPEG-TS, GSExtract selects the PID with the most BBFrame
+sync bytes (``0xB8``) and parses its reassembled payload. MPEG-TS streaming is
+not currently supported; use a completed recording or select ``b8``/
+``standard`` for a raw BBFrame stream.
 
 ### Caveats and Additional Features
 #### Header Extensions

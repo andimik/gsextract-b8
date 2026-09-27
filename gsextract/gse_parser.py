@@ -11,6 +11,8 @@ import os
 import sys
 import time
 import socket
+
+TS_PACKET_SIZE = 188
 defrag_dict = {}
 
 counters = {
@@ -29,6 +31,43 @@ counters = {
 
 sync_dict = {}
 
+def looks_like_mpeg_ts(data):
+    """Return true when the input has MPEG-TS sync bytes at 188-byte intervals."""
+    return len(data) >= TS_PACKET_SIZE * 3 and all(
+        data[offset] == 0x47 for offset in range(0, TS_PACKET_SIZE * 3, TS_PACKET_SIZE)
+    )
+
+def extract_mpeg_ts_payload(data):
+    """Reassemble the PID payload most likely to contain BBFrames."""
+    pid_payloads = {}
+    for offset in range(0, len(data) - TS_PACKET_SIZE + 1, TS_PACKET_SIZE):
+        packet = data[offset:offset + TS_PACKET_SIZE]
+        if packet[0] != 0x47:
+            continue
+
+        pid = ((packet[1] & 0x1f) << 8) | packet[2]
+        adaptation_control = (packet[3] >> 4) & 0x03
+        if adaptation_control in (0, 2):
+            continue
+
+        payload_offset = 4
+        if adaptation_control == 3:
+            payload_offset += 1 + packet[4]
+        if payload_offset >= TS_PACKET_SIZE:
+            continue
+        pid_payloads.setdefault(pid, bytearray()).extend(packet[payload_offset:])
+
+    if not pid_payloads:
+        raise ValueError('MPEG-TS input contains no packet payloads')
+
+    pid, payload = max(
+        pid_payloads.items(),
+        key=lambda item: (item[1].count(0xb8), len(item[1]))
+    )
+    if payload.count(0xb8) == 0:
+        raise ValueError('MPEG-TS input contains no PID with BBFrame sync bytes (0xB8)')
+    return bytes(payload), pid
+
 FIN = 0x01
 SYN = 0x02
 RST = 0x04
@@ -40,10 +79,23 @@ CWR = 0x80
 
 def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True, input_format='b8'):
     with open(outfile, 'wb') as pcap_file:
-        io = KaitaiStream(open(file, 'rb'))
+        if stream and input_format == 'ts':
+            raise ValueError('MPEG-TS input is not supported in stream mode')
+        input_size = os.path.getsize(file)
+        if input_format == 'ts' or (input_format == 'auto' and not stream):
+            with open(file, 'rb') as input_file:
+                input_data = input_file.read()
+            if input_format == 'ts' or looks_like_mpeg_ts(input_data):
+                input_data, ts_pid = extract_mpeg_ts_payload(input_data)
+                print(f' MPEG-TS detected; parsing PID {ts_pid}')
+                input_format = 'b8' if input_data[:1] == bytes([bbsync]) else 'standard'
+                io = KaitaiStream(BytesIO(input_data))
+            else:
+                io = KaitaiStream(BytesIO(input_data))
+        else:
+            io = KaitaiStream(open(file, 'rb'))
         pcap_writer = Writer()
         pcap_writer.create_header(pcap_file)
-        input_size = os.path.getsize(file)
         progress = click.progressbar(
             length=None if stream else max(input_size, 1),
             label='Parsing',
