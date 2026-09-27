@@ -38,7 +38,7 @@ URG = 0x20
 ECE = 0x40
 CWR = 0x80
 
-def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True):
+def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True, input_format='b8'):
     with open(outfile, 'wb') as pcap_file:
         io = KaitaiStream(open(file, 'rb'))
         pcap_writer = Writer()
@@ -59,7 +59,15 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 last_pos = io.pos()
                 # prints the first BBframe we find at the current IO position
                 # this throws EOF if there's no bytes left in the file
-                current_bbframe = PureBb(io, bbsync=bbsync).bbframe
+                has_bbsync = input_format == 'b8'
+                if input_format == 'auto':
+                    has_bbsync = io.read_u1() == bbsync
+                    io.seek(last_pos)
+                current_bbframe = PureBb(
+                    io,
+                    bbsync=bbsync,
+                    has_bbsync=has_bbsync,
+                ).bbframe
                 if eof_count > 0:
                     print()
                     print("new frames found, continuing...")

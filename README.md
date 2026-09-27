@@ -1,5 +1,5 @@
 # GSExtract-b8
-This is a *modified* version of GSExtract that will parse BBframe streams that have a B8 byte inserted before each bbframe header.
+This is a *modified* version of GSExtract that can parse BBFrame streams with or without a B8 byte inserted before each BBFrame header.
 
 **GSExtract** is a tool for converting imperfect satellite radio captures of internet traffic transmitted using Generic Stream Encapsulation (GSE) over DVB-S into usable `*.pcap` files.
 
@@ -56,9 +56,22 @@ You can also stream from a live recording of satellite traffic continuously usin
 gsextract --stream [satellite_recording.ts] [output.pcap]
 ```
 
+By default, gsextract automatically detects whether the input uses the modified format with an inserted ``0xB8`` byte before each BBFrame header. You can explicitly select the standard format with ``--format standard``:
+```bash
+gsextract --format standard [satellite_recording.ts] [output.pcap]
+```
+
+The available input formats are:
+
+* ``auto`` (default): detect the format from the next byte before each BBFrame header
+* ``b8``: expect an inserted ``0xB8`` byte before each BBFrame header
+* ``standard``: the BBFrame header starts directly, without the inserted byte
+
 ### Caveats and Additional Features
 #### Header Extensions
 Some service providers use proprietary header extensions for GSE. Generally, parsing traffic with such extensions will require modifying the kaitai struct used for GSE data extraction (you can find it in ``gsextract/parsers/pure_gse.ksy`` and ``gsextract/parsers/pure_gse.py``).
+
+If most BBFrames are reported as corrupt, check that the input format matches the recording. Automatic detection can be overridden with ``--format b8`` or ``--format standard``.
 
 A simple feature to try and force the addition of semi-valid IP headers can be enabled with the ``--no-reliable`` flag. This can increase the number of packets extracted with unusual GSE header extensions but can also result in false IP headers.
 ```bash

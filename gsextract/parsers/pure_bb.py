@@ -4,12 +4,13 @@ from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
 
 
 class PureBb(KaitaiStruct):
-    def __init__(self, _io, _parent=None, _root=None, bbsync=None):
+    def __init__(self, _io, _parent=None, _root=None, bbsync=None, has_bbsync=True):
         self._io = _io
         self._parent = _parent
         self._root = _root if _root else self
         if bbsync is not None:
             self._bbsync = bbsync
+        self._has_bbsync = has_bbsync
         self._read()
 
     def _read(self):
@@ -85,7 +86,10 @@ class PureBb(KaitaiStruct):
             self._read()
 
         def _read(self):
-            self.bbsync = self._io.read_bits_int(8)
+            if self._root.has_bbsync:
+                self.bbsync = self._io.read_bits_int(8)
+            else:
+                self.bbsync = self._root.bbsync
             self.matype_1 = self._root.Matype1(self._io, self, self._root)
             self.matype_2 = self._io.read_bits_int(8)
             if self.bbsync == 0xb8:
@@ -128,6 +132,12 @@ class PureBb(KaitaiStruct):
             self.npd = self._io.read_bits_int(1) != 0
             self.ro = self._io.read_bits_int(2)
 
+
+    @property
+    def has_bbsync(self):
+        if hasattr(self, '_has_bbsync'):
+            return self._has_bbsync
+        return True
 
     @property
     def bbsync(self):
