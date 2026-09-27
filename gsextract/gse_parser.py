@@ -79,12 +79,22 @@ CWR = 0x80
 
 def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, tcp_hijack_ips=None, reliable=True, input_format='b8'):
     with open(outfile, 'wb') as pcap_file:
+        if file == '-':
+            if stream:
+                raise ValueError('stdin input is not supported in stream mode')
+            input_data = sys.stdin.buffer.read()
+            input_size = len(input_data)
+            io = KaitaiStream(BytesIO(input_data))
+        else:
+            input_data = None
+            input_size = os.path.getsize(file)
+            io = None
         if stream and input_format == 'ts':
             raise ValueError('MPEG-TS input is not supported in stream mode')
-        input_size = os.path.getsize(file)
-        if input_format == 'ts' or (input_format == 'auto' and not stream):
-            with open(file, 'rb') as input_file:
-                input_data = input_file.read()
+        if input_data is not None or input_format == 'ts' or (input_format == 'auto' and not stream):
+            if input_data is None:
+                with open(file, 'rb') as input_file:
+                    input_data = input_file.read()
             if input_format == 'ts' or looks_like_mpeg_ts(input_data):
                 input_data, ts_pid = extract_mpeg_ts_payload(input_data)
                 print(f' MPEG-TS detected; parsing PID {ts_pid}')
@@ -92,7 +102,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 io = KaitaiStream(BytesIO(input_data))
             else:
                 io = KaitaiStream(BytesIO(input_data))
-        else:
+        elif io is None:
             io = KaitaiStream(open(file, 'rb'))
         pcap_writer = Writer()
         pcap_writer.create_header(pcap_file)

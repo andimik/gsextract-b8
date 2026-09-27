@@ -51,6 +51,11 @@ Basic usage of GSExtract requires a binary file containing continuous DVB-S BBFr
 gsextract [satellite_recording.ts] [output.pcap]
 ```
 
+Use ``-`` as the input path to read a completed recording from standard input:
+```bash
+cat [satellite_recording.ts] | gsextract - [output.pcap]
+```
+
 You can also stream from a live recording of satellite traffic continuously using the ``--stream`` option. This will cause gsextract to watch the input file for new BBFrames and process them as they arrive.
 ```bash
 gsextract --stream [satellite_recording.ts] [output.pcap]

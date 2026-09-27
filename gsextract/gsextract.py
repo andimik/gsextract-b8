@@ -1,8 +1,16 @@
 import click
+import os
 import gsextract.gse_parser as gse_parser
 
+def input_path(value):
+    if value == '-':
+        return value
+    if not os.path.isfile(value):
+        raise click.BadParameter('file does not exist')
+    return value
+
 @click.command()
-@click.argument('input_file', type=click.Path(exists=True))
+@click.argument('input_file', callback=lambda ctx, param, value: input_path(value))
 @click.argument('output_file', type=click.Path())
 @click.option('--stream/--no-stream', default=False, help='Stream continuously from the file. Use the --stream flag to dump to a pcap from a real time GSE recording.')
 @click.option('--reliable/--no-reliable', default=True, help='Add the --no-reliable flag to attempt to brute force IP headers in certain situations. Increases recovery but also can result in fake packets.')
