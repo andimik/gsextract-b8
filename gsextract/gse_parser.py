@@ -82,7 +82,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 eof_count += 1
                 io.seek(last_pos)
                 continue
-            except:
+            except Exception:
                 # we want to maximize recovery in the case of stream parsing errors so we will just keep trying
                 continue
 
@@ -226,7 +226,7 @@ def extract_ip_from_gse_data(raw_data, high_reliability=True, tcp_hijack=False, 
         try:
             raw_data = raw_data + (3*len(raw_data))*b"\x00"
             ip_packet = Ipv4Packet.from_bytes(raw_data)
-        except:
+        except Exception:
             counters['non_ip_or_corrupt_gse'] += 1
     except ValueError:
         # we can try and force a typical first two bytes of an IPV4 header to bully GSExtract into making a packet
@@ -235,14 +235,14 @@ def extract_ip_from_gse_data(raw_data, high_reliability=True, tcp_hijack=False, 
             try:
                 raw_data = b"\x45" + raw_data  + (3 * len(raw_data)) * b"\x00"
                 ip_packet = Ipv4Packet.from_bytes(raw_data)
-            except:
+            except Exception:
                 try:
                     raw_data = b"\x45\x00" + raw_data[1:] + (3 * len(raw_data)) * b"\x00"
                     ip_packet = Ipv4Packet.from_bytes(raw_data)
-                except:
+                except Exception:
                     pass
         counters['non_ip_or_corrupt_gse'] += 1
-    except:
+    except Exception:
         pass
     if ip_packet is not None:
         seconds_time = time.time()
