@@ -8,6 +8,7 @@ from scapy.layers.all import IP, TCP, Ether, ICMP
 from scapy.all import send, sendp, sendpfast
 import click
 import os
+import sys
 import time
 import socket
 defrag_dict = {}
@@ -63,6 +64,9 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                     print()
                     print("new frames found, continuing...")
                     eof_count = 0
+            except KeyboardInterrupt:
+                progress.__exit__(*sys.exc_info())
+                raise
             except EOFError:
                 if not stream:
                     # if we're reading from a static file EOFError is sufficient reason to stop
@@ -132,7 +136,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
 
         if not stream:
             progress.update(max(input_size - progress_position, 0))
-        progress.finish()
+        progress.__exit__(None, None, None)
         # Print some basic stats before finishing
         print()
         print(counters)
