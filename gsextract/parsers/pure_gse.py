@@ -1,23 +1,37 @@
 # This is a generated file! Please edit source .ksy file and use kaitai-struct-compiler to rebuild
 
-from pkg_resources import parse_version
-from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
+try:
+    from importlib.metadata import version
+    ks_version = version('kaitaistruct')
+except ImportError:
+    from kaitaistruct import __version__ as ks_version
+
+from packaging.version import Version
+
+
+def parse_version(v):
+    return Version(str(v))
+
+
+from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
 
 
 if parse_version(ks_version) < parse_version('0.7'):
     raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
 
-class PureGse(KaitaiStruct):
-    def __init__(self, _io, _parent=None, _root=None):
+class PureBb(KaitaiStruct):
+    def __init__(self, _io, _parent=None, _root=None, bbsync=None):
         self._io = _io
         self._parent = _parent
         self._root = _root if _root else self
+        if bbsync is not None:
+            self._bbsync = bbsync
         self._read()
 
     def _read(self):
-        self.gse_packet = self._root.GsePacket(self._io, self, self._root)
+        self.bbframe = self._root.Bbframe(self._io, self, self._root)
 
-    class NpaHeader(KaitaiStruct):
+    class Matype2(KaitaiStruct):
         def __init__(self, _io, _parent=None, _root=None):
             self._io = _io
             self._parent = _parent
@@ -25,10 +39,10 @@ class PureGse(KaitaiStruct):
             self._read()
 
         def _read(self):
-            self.npa_address = self._io.read_bytes(3)
+            self.input_stream_identifier = self._io.read_bits_int(8)
 
 
-    class NullExtension(KaitaiStruct):
+    class Bbframe(KaitaiStruct):
         def __init__(self, _io, _parent=None, _root=None):
             self._io = _io
             self._parent = _parent
@@ -36,10 +50,28 @@ class PureGse(KaitaiStruct):
             self._read()
 
         def _read(self):
-            self.empty = self._io.read_bytes(0)
+            self.bbheader = self._root.Bbheader(self._io, self, self._root)
+            if self.bbheader.bbsync == 0xb8:
+                self.data_field = self._io.read_bytes((self.bbheader.data_field_length_bytes - 4))
+
+            if self.bbheader.bbsync == 0xb8:
+                self.crc32 = self._io.read_bytes(4)
+
+            if self.bbheader.bbsync != 0xb8:
+                self.corrupt_data = []
+                i = 0
+                while True:
+                    _ = self._root.JunkData(self._io, self, self._root)
+                    self.corrupt_data.append(_)
+                    if _.next_byte == self._root.bbsync:
+                        break
+                    i += 1
 
 
-    class GsePayload(KaitaiStruct):
+
+
+
+    class JunkData(KaitaiStruct):
         def __init__(self, _io, _parent=None, _root=None):
             self._io = _io
             self._parent = _parent
@@ -47,17 +79,21 @@ class PureGse(KaitaiStruct):
             self._read()
 
         def _read(self):
-            if self._parent.gse_header.has_protocol_type:
-                _on = self._parent.gse_header.protocol_type
-                if _on == 2:
-                    self.extension_headers = self._root.NpaHeader(self._io, self, self._root)
-                else:
-                    self.extension_headers = self._root.NullExtension(self._io, self, self._root)
+            self.junkbyte = self._io.read_u1()
 
-            self.data = self._io.read_bytes_full()
+        @property
+        def next_byte(self):
+            if hasattr(self, '_m_next_byte'):
+                return self._m_next_byte if hasattr(self, '_m_next_byte') else None
+
+            _pos = self._io.pos()
+            self._io.seek(self._io.pos())
+            self._m_next_byte = self._io.read_bits_int(8)
+            self._io.seek(_pos)
+            return self._m_next_byte if hasattr(self, '_m_next_byte') else None
 
 
-    class GsePacket(KaitaiStruct):
+    class Bbheader(KaitaiStruct):
         def __init__(self, _io, _parent=None, _root=None):
             self._io = _io
             self._parent = _parent
@@ -65,15 +101,35 @@ class PureGse(KaitaiStruct):
             self._read()
 
         def _read(self):
-            self.gse_header = self._root.GseHeader(self._io, self, self._root)
-            if not (self.gse_header.is_padding_packet):
-                self._raw_gse_payload = self._io.read_bytes(((self.gse_header.payload_size - 2) if self.gse_header.payload_size > 2 else self.gse_header.payload_size))
-                io = KaitaiStream(BytesIO(self._raw_gse_payload))
-                self.gse_payload = self._root.GsePayload(io, self, self._root)
+            self.bbsync = self._io.read_bits_int(8)
+            self.matype_1 = self._root.Matype1(self._io, self, self._root)
+            self.matype_2 = self._io.read_bits_int(8)
+            if self.bbsync == 0xb8:
+                self.user_packet_length = self._io.read_bits_int(16)
+
+            if self.bbsync == 0xb8:
+                self.data_field_length = self._io.read_bits_int(16)
+
+            if self.bbsync == 0xb8:
+                self.sync = self._io.read_bits_int(8)
+
+            if self.bbsync == 0xb8:
+                self.syncd = self._io.read_bits_int(16)
+
+            if self.bbsync == 0xb8:
+                self.crc8 = self._io.read_bits_int(8)
 
 
+        @property
+        def data_field_length_bytes(self):
+            if hasattr(self, '_m_data_field_length_bytes'):
+                return self._m_data_field_length_bytes if hasattr(self, '_m_data_field_length_bytes') else None
 
-    class GseHeader(KaitaiStruct):
+            self._m_data_field_length_bytes = self.data_field_length // 8
+            return self._m_data_field_length_bytes if hasattr(self, '_m_data_field_length_bytes') else None
+
+
+    class Matype1(KaitaiStruct):
         def __init__(self, _io, _parent=None, _root=None):
             self._io = _io
             self._parent = _parent
@@ -81,95 +137,30 @@ class PureGse(KaitaiStruct):
             self._read()
 
         def _read(self):
-            self.start_indicator = self._io.read_bits_int(1) != 0
-            self.end_indicator = self._io.read_bits_int(1) != 0
-            self.label_type_indicator = self._io.read_bits_int(2)
-            if self.is_padding_packet:
-                self.padding_bits = self._io.read_bits_int(4)
-
-            if not (self.is_padding_packet):
-                self.gse_length = self._io.read_bits_int(12)
-
-            if self.has_frag_id:
-                self.frag_id = self._io.read_bits_int(8)
-
-            if self.has_total_length:
-                self.total_length = self._io.read_bits_int(16)
-
-            if self.has_protocol_type:
-                self.protocol_type = self._io.read_bits_int(16)
-
-            self._io.align_to_byte()
-            if self.has_label:
-                self.label = self._io.read_bytes(self.label_size)
+            self.ts_gs_field = self._io.read_bits_int(2)
+            self.sis_mis_field = self._io.read_bits_int(1) != 0
+            self.ccm_acm_field = self._io.read_bits_int(1) != 0
+            self.issyi = self._io.read_bits_int(1) != 0
+            self.npd = self._io.read_bits_int(1) != 0
+            self.ro = self._io.read_bits_int(2)
 
 
-        @property
-        def has_label(self):
-            if hasattr(self, '_m_has_label'):
-                return self._m_has_label if hasattr(self, '_m_has_label') else None
+    @property
+    def bbsync(self):
+        """This value is used to recover from broken bbheader streams by looking for the next valid bbheader.
+        It can be manually edited or specified by modifying the generated constructor like so:
+        def __init__(self, _io, _parent=None, _root=None, bbsync=None):
+          self._io = _io
+          self._parent = _parent
+          self._root = _root if _root else self
+          if bbsync is not None:
+              self._bbsync = bbsync
+          self._read()
+        """
+        if hasattr(self, '_bbsync'):
+            return self._bbsync if hasattr(self, '_bbsync') else None
 
-            self._m_has_label =  ((not (self.is_padding_packet)) and (self.start_indicator) and (self.label_type_indicator <= 1) and (self.gse_length > 12)) 
-            return self._m_has_label if hasattr(self, '_m_has_label') else None
-
-        @property
-        def is_padding_packet(self):
-            if hasattr(self, '_m_is_padding_packet'):
-                return self._m_is_padding_packet if hasattr(self, '_m_is_padding_packet') else None
-
-            self._m_is_padding_packet =  ((not (self.start_indicator)) and (not (self.end_indicator)) and (self.label_type_indicator == 0)) 
-            return self._m_is_padding_packet if hasattr(self, '_m_is_padding_packet') else None
-
-        @property
-        def payload_size(self):
-            if hasattr(self, '_m_payload_size'):
-                return self._m_payload_size if hasattr(self, '_m_payload_size') else None
-
-            self._m_payload_size = (0 if self.is_padding_packet else ((((self.gse_length - (1 if self.has_frag_id else 0)) - (2 if self.has_total_length else 0)) - (2 if self.has_protocol_type else 0)) - self.label_size))
-            return self._m_payload_size if hasattr(self, '_m_payload_size') else None
-
-        @property
-        def has_frag_id(self):
-            if hasattr(self, '_m_has_frag_id'):
-                return self._m_has_frag_id if hasattr(self, '_m_has_frag_id') else None
-
-            self._m_has_frag_id =  ((not (self.is_padding_packet)) and ( ((not (self.start_indicator)) or (not (self.end_indicator))) )) 
-            return self._m_has_frag_id if hasattr(self, '_m_has_frag_id') else None
-
-        @property
-        def has_total_length(self):
-            if hasattr(self, '_m_has_total_length'):
-                return self._m_has_total_length if hasattr(self, '_m_has_total_length') else None
-
-            self._m_has_total_length =  ((not (self.is_padding_packet)) and ( ((self.start_indicator) and (not (self.end_indicator))) )) 
-            return self._m_has_total_length if hasattr(self, '_m_has_total_length') else None
-
-        @property
-        def has_protocol_type(self):
-            if hasattr(self, '_m_has_protocol_type'):
-                return self._m_has_protocol_type if hasattr(self, '_m_has_protocol_type') else None
-
-            self._m_has_protocol_type =  ((not (self.is_padding_packet)) and (self.start_indicator)) 
-            return self._m_has_protocol_type if hasattr(self, '_m_has_protocol_type') else None
-
-        @property
-        def label_size(self):
-            if hasattr(self, '_m_label_size'):
-                return self._m_label_size if hasattr(self, '_m_label_size') else None
-
-            self._m_label_size = ((1 if self.has_label else 0) * (6 if self.label_type_indicator == 0 else (3 if self.label_type_indicator == 1 else 0)))
-            return self._m_label_size if hasattr(self, '_m_label_size') else None
-
-
-    class BridgedSnduHeader(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.mac_address = self._io.read_bytes(6)
-
+        self._bbsync = 0xB8
+        return self._bbsync if hasattr(self, '_bbsync') else None
 
 

@@ -6,6 +6,8 @@ from .pcaplib import Writer
 from datetime import datetime
 from scapy.layers.all import IP, TCP, Ether, ICMP
 from scapy.all import send, sendp, sendpfast
+import click
+import os
 import time
 import socket
 defrag_dict = {}
@@ -40,6 +42,13 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
         io = KaitaiStream(open(file, 'rb'))
         pcap_writer = Writer()
         pcap_writer.create_header(pcap_file)
+        input_size = os.path.getsize(file)
+        progress = click.progressbar(
+            length=None if stream else max(input_size, 1),
+            label='Parsing',
+        )
+        progress.__enter__()
+        progress_position = 0
         bbframe_count = 1
         pkt_count = 0
         eof_count = 0
@@ -51,6 +60,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 # this throws EOF if there's no bytes left in the file
                 current_bbframe = PureBb(io, bbsync=bbsync).bbframe
                 if eof_count > 0:
+                    print()
                     print("new frames found, continuing...")
                     eof_count = 0
             except EOFError:
@@ -67,6 +77,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 elif eof_count > 1000600:
                     # after an hour of no fresh bytes (plus a little bit more), gsextract will exit and clean up buffers
                     # this normally means something has broken in the satellite hardware side
+                    print()
                     print("No new data received for at least 1 hour. Exiting gsextract.")
                 eof_count += 1
                 io.seek(last_pos)
@@ -76,6 +87,9 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 continue
 
             bbframe_count += 1
+            current_position = io.pos()
+            progress.update(max(current_position - progress_position, 0))
+            progress_position = current_position
             # record stats on corrupt BBframes and then move to the next frame
             if hasattr(current_bbframe, 'corrupt_data'):
                 counters['broken_bbframes'] += 1
@@ -91,6 +105,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
                 tmp<<=1
                 tmp=current_bbframe.bbheader.matype_1.ro
                 tmp<<=2
+                print()
                 print("BBFrame", bbframe_count, " contains corrupt data, (BBSYNC, MA1, MA2:", current_bbframe.bbheader.bbsync, " ", tmp, " ", current_bbframe.bbheader.matype_2, ") attempting to recover")
             else:
                 # for valid BBFrames
@@ -105,6 +120,7 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
 
                     # print some  progress stats
                     if pkt_count % 10000 == 0:
+                        print()
                         print(pkt_count, "packets parsed")
                         print(counters)
 
@@ -114,7 +130,11 @@ def gse_parse(file, outfile, bbsync=int(0xB8), stream=False, tcp_hijack=False, t
         if len(raw_packets) > 0:
             pcap_writer.write(raw_packets, pcap_file)
 
+        if not stream:
+            progress.update(max(input_size - progress_position, 0))
+        progress.finish()
         # Print some basic stats before finishing
+        print()
         print(counters)
 
 def get_gse_from_bbdata(bbdata):
